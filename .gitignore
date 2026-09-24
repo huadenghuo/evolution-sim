@@ -1,0 +1,24 @@
+# 依赖包（体积大且可由 package.json 重建，绝不提交）
+node_modules/
+
+# 部署平台凭据与缓存（含 Token，务必忽略）
+.vercel/
+.eo-installation-id
+
+# 构建产物与备份
+dist/
+build/
+.backup/
+*.apk
+
+# 系统与编辑器
+Thumbs.db
+.DS_Store
+desktop.ini
+.vscode/
+.idea/
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+*.tmp

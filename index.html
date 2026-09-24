@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>草原进化模拟器 · Savannah Evo</title>
+<style>
+  :root{
+    --bg:#10160e; --panel:#1a2317; --panel2:#243020; --line:#3a4a33;
+    --text:#e6ede0; --muted:#93a58c; --accent:#7bd860; --green:#4ade80;
+    --warn:#fbbf24; --red:#f87171; --blue:#60a5fa;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; flex-direction:column; min-height:100vh;
+    user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  header{
+    display:flex; align-items:center; gap:12px; padding:8px 14px;
+    background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap;
+  }
+  header h1{font-size:16px; font-weight:600; color:var(--accent); white-space:nowrap;}
+  .toolbar{display:flex; gap:5px; flex-wrap:wrap;}
+  .tool-btn{
+    padding:6px 11px; border:1px solid var(--line); border-radius:8px; background:var(--panel2);
+    color:var(--text); cursor:pointer; font-size:13px; user-select:none; transition:.15s;
+    touch-action:manipulation;
+  }
+  .tool-btn:hover{border-color:var(--accent);}
+  .tool-btn.active{background:var(--accent); color:#0c2206; border-color:var(--accent); font-weight:600;}
+  .btn-row{display:flex; gap:5px; flex-wrap:wrap;}
+  .small-btn{padding:5px 9px; font-size:12px; border-radius:6px; border:1px solid var(--line);
+    background:var(--panel2); color:var(--text); cursor:pointer; touch-action:manipulation;}
+  .small-btn:hover{border-color:var(--accent);}
+  main{flex:1; display:flex; min-height:0;}
+  .canvas-wrap{flex:1; display:flex; align-items:center; justify-content:center; padding:8px; min-width:0; min-height:0;}
+  #stage{width:100%; height:100%; display:flex; align-items:center; justify-content:center;}
+  canvas#cv{
+    background:#22331c; border-radius:10px; border:1px solid var(--line);
+    max-width:100%; max-height:100%; touch-action:none; cursor:crosshair;
+  }
+  aside{
+    width:320px; background:var(--panel); border-left:1px solid var(--line);
+    padding:12px; overflow-y:auto; flex-shrink:0;
+  }
+  aside h2{font-size:12px; color:var(--muted); margin:12px 0 6px; font-weight:600;
+    border-bottom:1px solid var(--line); padding-bottom:3px;}
+  aside h2:first-child{margin-top:0;}
+  .row{display:flex; align-items:center; justify-content:space-between; margin:6px 0; gap:8px; font-size:13px;}
+  .row label{white-space:nowrap;}
+  .row .val{color:var(--muted); font-size:12px; min-width:46px; text-align:right;}
+  input[type=range]{flex:1; accent-color:var(--accent); max-width:140px; height:22px;}
+  select, input[type=number]{
+    background:var(--bg); color:var(--text); border:1px solid var(--line);
+    border-radius:6px; padding:3px 6px; font-size:13px;
+  }
+  .ctrl{
+    padding:8px 16px; border:none; border-radius:8px; font-size:14px; font-weight:600;
+    cursor:pointer; touch-action:manipulation;
+  }
+  .data-box{
+    background:var(--bg); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:13px; line-height:1.9; font-variant-numeric:tabular-nums;
+  }
+  .data-box .k{color:var(--muted); display:inline-block; width:96px;}
+  .chart-box{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px;}
+  canvas.chart{display:block; width:100%; border-radius:5px;}
+  .chart-tabs{display:flex; gap:4px; margin-top:6px;}
+  .chart-tabs button{flex:1; font-size:11px; padding:3px 0;}
+  .legend{display:flex; gap:10px; font-size:11px; color:var(--muted); margin-top:4px; flex-wrap:wrap;}
+  .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:3px; vertical-align:middle;}
+  .gene-chip{display:inline-block; background:var(--panel2); border:1px solid var(--line);
+    border-radius:6px; padding:2px 7px; margin:2px 2px 2px 0; font-size:12px;}
+  footer{
+    display:flex; align-items:center; gap:10px; padding:8px 14px;
+    background:var(--panel); border-top:1px solid var(--line); flex-wrap:wrap;
+  }
+  .status{font-size:13px; color:var(--muted); margin-left:auto;}
+  .status b{color:var(--accent);}
+  @media (max-width:820px){
+    main{flex-direction:column;}
+    .canvas-wrap{flex:none; height:44vh;}
+    aside{width:100%; border-left:none; border-top:1px solid var(--line); flex:1;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🦁 草原进化模拟器</h1>
+  <div class="toolbar">
+    <button class="tool-btn active" data-tool="select">🖐 选择</button>
+    <button class="tool-btn" data-tool="rabbit">🐇 投放兔</button>
+    <button class="tool-btn" data-tool="wolf">🐺 投放狼</button>
+  </div>
+  <div class="btn-row">
+    <button class="small-btn" data-preset="classic">经典草原</button>
+    <button class="small-btn" data-preset="wild">野生振荡</button>
+    <button class="small-btn" data-preset="barren">贫瘠草原</button>
+    <button class="small-btn" data-preset="arms">军备竞赛</button>
+    <button class="small-btn" data-preset="nowolf">无狼对照</button>
+  </div>
+</header>
+
+<main>
+  <div class="canvas-wrap"><div id="stage"><canvas id="cv"></canvas></div></div>
+
+  <aside>
+    <h2>🎛 模拟控制</h2>
+    <div class="row">
+      <button class="ctrl" id="btnPlay" style="background:var(--green); color:#052e16;">▶ 开始</button>
+      <button class="ctrl" id="btnStep" style="background:var(--panel2); color:var(--text); border:1px solid var(--line);">⏭ 单步</button>
+      <button class="ctrl" id="btnReset" style="background:var(--panel2); color:var(--text); border:1px solid var(--line);">⟲ 重置</button>
+    </div>
+    <div class="row"><label>倍速</label>
+      <select id="speedSel">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+        <option value="8">8×</option>
+        <option value="16">16×</option>
+      </select>
+    </div>
+
+    <h2>⚙️ 生态参数</h2>
+    <div class="row"><label>草生长率</label><input type="range" id="grassRate" min="0.005" max="0.12" step="0.005" value="0.04"><span class="val" id="grassRateV">0.040</span></div>
+    <div class="row"><label>代谢系数</label><input type="range" id="metabK" min="0.5" max="2" step="0.1" value="1"><span class="val" id="metabKV">1.0</span></div>
+    <div class="row"><label>大变异概率</label><input type="range" id="mutP" min="0.02" max="0.4" step="0.01" value="0.15"><span class="val" id="mutPV">15%</span></div>
+    <div class="row"><label>捕食转化率</label><input type="range" id="convE" min="0.3" max="1" step="0.05" value="0.8"><span class="val" id="convEV">0.80</span></div>
+
+    <h2>📊 种群动态</h2>
+    <div class="chart-box">
+      <canvas id="chartPop" class="chart" height="130"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#57c84d"></span>草总量</span>
+        <span><span class="dot" style="background:#e8d44d"></span>兔</span>
+        <span><span class="dot" style="background:#9aa7b5"></span>狼</span>
+      </div>
+    </div>
+
+    <h2>🧬 进化曲线 <span style="font-weight:400; font-size:11px;">（种群平均基因）</span></h2>
+    <div class="chart-box">
+      <canvas id="chartEvo" class="chart" height="130"></canvas>
+      <div class="chart-tabs">
+        <button class="small-btn" id="tabSpeed" style="background:var(--accent); color:#0c2206;">速度</button>
+        <button class="small-btn" id="tabCap">耐饿(能量上限)</button>
+        <button class="small-btn" id="tabVision">视野</button>
+      </div>
+      <div class="legend" id="evoLegend"></div>
+    </div>
+
+    <h2>📈 实时统计</h2>
+    <div class="data-box" id="statBox">—</div>
+
+    <h2>🎯 选中个体</h2>
+    <div class="data-box" id="objBox" style="color:var(--muted)">点击画布中的动物查看基因</div>
+  </aside>
+</main>
+
+<footer>
+  <span class="status" id="statusBar">模式：<b>编辑</b> · 时间 0.0 s</span>
+</footer>
+
+<script>
+"use strict";
+/* =================================================================
+   草原进化模拟器 Savannah Evo
+   草(逻辑斯蒂生长+蔓延) — 兔(吃草) — 狼(吃兔)
+   有丝分裂繁殖：能量达阈值一分为二；后代 85% 遗传±小扰动 / 15% 大变异
+   ================================================================= */
+
+/* ---------- 世界常量（固定逻辑尺寸，画布等比显示） ---------- */
+const WW = 1600, WH = 1000;          // 世界逻辑尺寸 px
+const CELL = 16;                      // 草格边长
+const GW = Math.floor(WW / CELL), GH = Math.floor(WH / CELL);  // 草格数 100x62
+const SIM_DT = 1 / 30;                // 固定模拟步长
+const POP_CAP = { rabbit: 450, wolf: 80 };   // 分物种上限：狼封顶即压制力上限，防超调灭绝
+const SPLIT_FRAC = { rabbit: 0.80, wolf: 0.88 };  // 分裂阈值（×cap）：狼需攒更多能量才繁殖
+const SPLIT_COOLDOWN = { rabbit: 15, wolf: 70 };  // 分裂冷却 s（狼繁殖慢：大型动物 r/K 策略）
+const HUNGRY_VISION = 1.6;             // 饥饿远征：能量<40%时视野放大（饥饿驱动远行觅食）
+const RABBIT_HUNGRY = 0.35;            // 兔饿极阈值：能量<35%触发求生（视野放大+门槛降低）
+const RABBIT_HUNGRY_VISION = 1.8;      // 兔饿极时视野放大倍数
+const FOOD_MIN_SEEK = 0.08;            // 正常觅食阈值（视野内最肥格需 >8% 才算目标）
+const FOOD_MIN_HUNGRY = 0.03;          // 饿极时阈值（>3% 即算目标，能活命就吃）
+const WALL_REACH = 28;                 // 目标格中心距墙低于此值即「看得到吃不到」，觅食时排除
+const WOLF_METAB = 1.6;               // 狼体型代谢系数（基础代谢为兔的 1.6 倍）
+const GRASS_ENERGY = 40;              // 每格满生物量可提取能量 E
+const EAT_RATE = 20;                  // 兔进食速率 E/s
+const AI_INTERVAL = 0.15;             // 决策间隔 s
+const CHASE_GIVEUP = 7;               // 狼追逐放弃时限 s
+const FLEE_BOOST = 1.35;              // 兔惊逃冲刺加成（60×1.35=81 > 狼75 → 逃得掉的才活）
+const CATCH_RADIUS = 22;              // 捕获接触半径 px
+const DIGEST_TIME = 10;               // 狼捕食后消化冷却 s（期间不追击）
+const JUVENILE = 12;                  // 幼崽保护期 s（体型小、出生后短时间不可被捕）
+const CATCH_BASE = 0.55;              // 基础捕获率（贴脸也非必中：猎物可挣扎）
+const HASH_CELL = 100;                // 空间哈希格边
+
+/* ---------- 参数（UI 可调） ---------- */
+const params = {
+  grassRate: 0.04,      // 草逻辑斯蒂生长率 /s（默认稳态：草充足，种群高位平稳，看进化）
+  metabK: 1.0,          // 代谢系数
+  mutP: 0.15,           // 大变异概率
+  convE: 0.8,           // 捕食能量转化率
+};
+
+/* ---------- 基因范围 ---------- */
+const GENE_RANGE = {
+  speed:   { min: 30, max: 160, init: { rabbit: 60, wolf: 75 } },
+  cap:     { min: 50, max: 400, init: { rabbit: 100, wolf: 250 } },
+  vision:  { min: 60, max: 300, init: { rabbit: 120, wolf: 160 } },
+};
+
+/* ---------- 随机工具 ---------- */
+function rnd(a, b){ return a + Math.random() * (b - a); }
+function gauss(){                      // Box-Muller 标准正态
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+
+/* ---------- 变异：85% 小扰动 ±5% / 15% 大变异 ±20% ---------- */
+function mutateGene(value, range){
+  let v;
+  if(Math.random() < params.mutP){
+    v = value * (1 + rnd(-0.20, 0.20));         // 大变异
+  } else {
+    v = value * (1 + gauss() * 0.05);            // 小扰动
+  }
+  return clamp(v, range.min, range.max);
+}
+function mutateGenes(g){
+  return {
+    speed:  mutateGene(g.speed,  GENE_RANGE.speed),
+    cap:    mutateGene(g.cap,    GENE_RANGE.cap),
+    vision: mutateGene(g.vision, GENE_RANGE.vision),
+  };
+}
+
+/* ---------- 草场 ---------- */
+const grass = new Float32Array(GW * GH);   // 生物量 0~1
+/* 重绘策略：草生长是批量变化（每 0.4s 一次），被啃食只影响单格。
+   分开标记可避免每帧全量重画 6200 格 —— 那是 37 万次 fillRect/秒的纯浪费。 */
+const grassCellDirty = new Set();          // 只需局部重绘的草格索引
+let grassFullDirty = true;                 // 需要全量重绘（播种 / 生长 / 还原快照）
+function gi(cx, cy){ return cy * GW + cx; }
+function seedGrass(coverage){
+  grass.fill(0);
+  for(let i = 0; i < grass.length; i++){
+    if(Math.random() < coverage) grass[i] = rnd(0.5, 1);
+  }
+  grassFullDirty = true;
+}
+let grassTimer = 0;
+function growGrass(dt){
+  // 草生长较慢，每 0.4s 批量更新一次即可
+  grassTimer += dt;
+  if(grassTimer < 0.4) return;
+  const step = grassTimer; grassTimer = 0;
+  const r = params.grassRate;
+  // 逻辑斯蒂增长：db = r·b·(1-b)·dt，并从邻居蔓延
+  for(let cy = 0; cy < GH; cy++){
+    for(let cx = 0; cx < GW; cx++){
+      const i = gi(cx, cy);
+      const b = grass[i];
+      if(b <= 0.001){
+        // 贫瘠格：从相邻茂盛格蔓延（相邻有草且>0.5 时概率发芽）
+        let fertile = 0;
+        for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+          const nx = cx + dx, ny = cy + dy;
+          if(nx >= 0 && nx < GW && ny >= 0 && ny < GH && grass[gi(nx, ny)] > 0.5) fertile++;
+        }
+        if(fertile > 0 && Math.random() < 0.06 * fertile * step * 30 / 30) grass[i] = 0.03;
+      } else {
+        grass[i] = b + r * b * (1 - b) * step;
+        if(grass[i] > 1) grass[i] = 1;
+      }
+    }
+  }
+  grassFullDirty = true;      // 生长是批量的，标记一次全量重绘即可
+}
+function totalGrass(){ let s = 0; for(let i = 0; i < grass.length; i++) s += grass[i]; return s; }
+/* 在 (x,y) 吃草，返回实际获取能量 */
+function eatGrass(x, y, rate, dt){
+  const cx = clamp(Math.floor(x / CELL), 0, GW - 1);
+  const cy = clamp(Math.floor(y / CELL), 0, GH - 1);
+  const i = gi(cx, cy);
+  const available = grass[i] * GRASS_ENERGY;
+  const want = rate * dt;
+  const got = Math.min(want, available);
+  grass[i] = Math.max(0, grass[i] - got / GRASS_ENERGY);
+  if(got > 0) grassCellDirty.add(i);           // 只重绘这一格
+  return got;
+}
+
+/* ---------- 动物 ---------- */
+let animals = [];
+let nextId = 1;
+let generationMax = { rabbit: 1, wolf: 1 };
+let deaths = { starved: 0, eaten: 0 };
+
+function spawnAnimal(kind, x, y, genes, gen){
+  const g = genes || {
+    speed:  GENE_RANGE.speed.init[kind],
+    cap:    GENE_RANGE.cap.init[kind],
+    vision: GENE_RANGE.vision.init[kind],
+  };
+  const a = {
+    id: nextId++, kind,
+    x: x !== undefined ? x : rnd(50, WW - 50),
+    y: y !== undefined ? y : rnd(50, WH - 50),
+    dir: rnd(0, Math.PI * 2),
+    moving: 0.4,                       // 当前速度比例（相对基因上限）
+    genes: g,
+    E: g.cap * (kind === 'wolf' ? 0.75 : 0.6),   // 初始能量（成年狼开局更饱，撑得到第一餐）
+    age: 0,
+    lastSplit: 0,
+    gen: gen || 1,
+    state: 'wander',                   // wander / seek / flee / chase
+    target: null,                      // {x,y} 或动物引用
+    aiTimer: Math.random() * AI_INTERVAL,
+    chaseTime: 0,
+    panic: 0,
+    digest: 0,                         // >0：消化中，不追击
+    escape: 0,                         // >0：越界逃逸中，方向固定朝场中心，不被随机扰动打断
+  };
+  animals.push(a);
+  if(a.gen > generationMax[kind]) generationMax[kind] = a.gen;
+  return a;
+}
+
+/* ---------- 空间哈希 ---------- */
+let hashMap = new Map();
+function hashKey(cx, cy){ return cx * 4096 + cy; }
+function rebuildHash(){
+  hashMap.clear();
+  for(const a of animals){
+    const k = hashKey(Math.floor(a.x / HASH_CELL), Math.floor(a.y / HASH_CELL));
+    let arr = hashMap.get(k);
+    if(!arr){ arr = []; hashMap.set(k, arr); }
+    arr.push(a);
+  }
+}
+function forEachNear(x, y, radius, fn){
+  const cx = Math.floor(x / HASH_CELL), cy = Math.floor(y / HASH_CELL);
+  const span = Math.ceil(radius / HASH_CELL);
+  for(let dy = -span; dy <= span; dy++){
+    for(let dx = -span; dx <= span; dx++){
+      const arr = hashMap.get(hashKey(cx + dx, cy + dy));
+      if(arr) for(const a of arr) fn(a);
+    }
+  }
+}
+
+/* ---------- 行为 AI ---------- */
+function thinkRabbit(a){
+  // 越界逃逸中：保持朝场中心的稳定方向，暂不决策（0.6s 内专心离开墙带）
+  if(a.escape > 0){ return; }
+  // 1) 逃命：视野内最近的狼
+  let threat = null, td = a.genes.vision;
+  forEachNear(a.x, a.y, a.genes.vision, o => {
+    if(o.kind !== 'wolf') return;
+    const d = Math.hypot(o.x - a.x, o.y - a.y);
+    if(d < td){ td = d; threat = o; }
+  });
+  if(threat){
+    a.state = 'flee';
+    a.dir = Math.atan2(a.y - threat.y, a.x - threat.x) + rnd(-0.3, 0.3);
+    a.moving = 1;
+    a.panic = 1;
+    return;
+  }
+  a.panic = Math.max(0, a.panic - 0.3);
+  // 2) 觅食：能量不满时找视野内最肥草格
+  //    饿极（E<35%）：视野放大、找草门槛降低——求生策略，宁远勿饿死
+  const hungry = a.E < a.genes.cap * RABBIT_HUNGRY;
+  const vr = a.genes.vision * (hungry ? RABBIT_HUNGRY_VISION : 1);
+  const seekTh = hungry ? FOOD_MIN_HUNGRY : FOOD_MIN_SEEK;
+  let foodAt = false;                    // 视野内是否出现过可吃的草
+  if(a.E < a.genes.cap * 0.95){
+    let best = -1, bx = 0, by = 0;
+    const span = Math.ceil(vr / CELL);
+    const ccx = Math.floor(a.x / CELL), ccy = Math.floor(a.y / CELL);
+    for(let dy = -span; dy <= span; dy++){       // 步长 1 全量：绝不错位漏检
+      for(let dx = -span; dx <= span; dx++){
+        const nx = ccx + dx, ny = ccy + dy;
+        if(nx < 0 || nx >= GW || ny < 0 || ny >= GH) continue;
+        // 排除贴墙格：中心距墙 < WALL_REACH 的格子兔子走不到，锁它会死循环
+        const gx = nx * CELL + CELL / 2, gy = ny * CELL + CELL / 2;
+        if(Math.min(gx, WW - gx, gy, WH - gy) < WALL_REACH) continue;
+        const b = grass[gi(nx, ny)];
+        if(b > 0){ foodAt = true; }
+        if(b > best){ best = b; bx = nx; by = ny; }
+      }
+    }
+    if(best > seekTh){
+      a.state = 'seek';
+      a.target = { x: bx * CELL + CELL / 2, y: by * CELL + CELL / 2 };
+      a.dir = Math.atan2(a.target.y - a.y, a.target.x - a.x);
+      a.moving = hungry ? 1 : 0.85;      // 饿极提速冲刺
+      return;
+    }
+    // 3b) 饿极且视野内还有一点草：朝最近的有草格艰难前进，而不是原地打转
+    if(hungry && foodAt){
+      let best2 = -1, nx2 = 0, ny2 = 0, bd2 = 1e9;
+      const vcells2 = Math.ceil(vr / CELL);
+      for(let dy = -vcells2; dy <= vcells2; dy++){
+        for(let dx = -vcells2; dx <= vcells2; dx++){
+          const nx = ccx + dx, ny = ccy + dy;
+          if(nx < 0 || nx >= GW || ny < 0 || ny >= GH) continue;
+          // 排除贴墙格（吃不到，锁它会死循环）
+          const gx = nx * CELL + CELL / 2, gy = ny * CELL + CELL / 2;
+          if(Math.min(gx, WW - gx, gy, WH - gy) < WALL_REACH) continue;
+          const b = grass[gi(nx, ny)];
+          if(b > 0){
+            const d2 = dx * dx + dy * dy;
+            if(d2 < bd2){ bd2 = d2; best2 = b; nx2 = nx; ny2 = ny; }
+          }
+        }
+      }
+      if(best2 > 0){
+        a.state = 'seek';
+        a.target = { x: nx2 * CELL + CELL / 2, y: ny2 * CELL + CELL / 2 };
+        a.dir = Math.atan2(a.target.y - a.y, a.target.x - a.x);
+        a.moving = 1;
+        return;
+      }
+    }
+  }
+  // 3) 游荡：贴墙（<80px 时常回场中，±小随机）避免在墙带徘徊；否则纯随机漫步
+  a.state = 'wander';
+  if(Math.min(a.x, WW - a.x, a.y, WH - a.y) < 80){
+    const toC = Math.atan2((WH / 2) - a.y, (WW / 2) - a.x);
+    a.dir = toC + rnd(-0.5, 0.5);
+  } else {
+    a.dir += rnd(-0.7, 0.7);
+  }
+  a.moving = 0.35;
+}
+
+function thinkWolf(a){
+  // 消化中：原地休息慢走
+  if(a.digest > 0){
+    a.state = 'wander';
+    a.target = null;
+    a.dir += rnd(-0.4, 0.4);
+    a.moving = 0.25;
+    return;
+  }
+  // 觅食：追视野内最近兔子（幼崽保护期内不捕；饥饿时视野放大远征）
+  const vision = a.genes.vision * (a.E < a.genes.cap * 0.4 ? HUNGRY_VISION : 1);
+  let prey = null, pd = vision;
+  forEachNear(a.x, a.y, vision, o => {
+    if(o.kind !== 'rabbit' || o.age < JUVENILE) return;
+    const d = Math.hypot(o.x - a.x, o.y - a.y);
+    if(d < pd){ pd = d; prey = o; }
+  });
+  if(prey){
+    if(a.state !== 'chase' || a.target !== prey){ a.chaseTime = 0; }
+    a.state = 'chase';
+    a.target = prey;
+    a.dir = Math.atan2(prey.y - a.y, prey.x - a.x);
+    a.moving = 1;
+    return;
+  }
+  a.state = 'wander';
+  a.target = null;
+  a.dir += rnd(-0.6, 0.6);
+  a.moving = 0.4;
+}
+
+/* ---------- 代谢 ---------- */
+function metabolism(a){
+  const body = a.kind === 'wolf' ? WOLF_METAB : 1;
+  return params.metabK * body * (1 + 0.02 * a.genes.speed * a.moving * a.moving);
+}
+
+/* ---------- 模拟主步 ---------- */
+let simTime = 0;
+let sampleTimer = 0;
+const history = [];                     // 采样：{t, grass, rabbit, wolf, rg:{}, wg:{}}
+
+function step(dt){
+  simTime += dt;
+  rebuildHash();
+  growGrass(dt);
+
+  const born = [], dead = new Set();
+
+  for(const a of animals){
+    if(dead.has(a.id)) continue;
+    a.age += dt;
+    a.aiTimer -= dt;
+    if(a.aiTimer <= 0){
+      a.aiTimer = AI_INTERVAL;
+      if(a.kind === 'rabbit') thinkRabbit(a); else thinkWolf(a);
+    }
+    // 追逐中的狼实时修正方向
+    if(a.kind === 'wolf' && a.state === 'chase' && a.target && !dead.has(a.target.id)){
+      a.chaseTime += dt;
+      if(a.chaseTime > CHASE_GIVEUP){ a.state = 'wander'; a.target = null; a.moving = 0.4; }
+      else a.dir = Math.atan2(a.target.y - a.y, a.target.x - a.x);
+    }
+
+    // 移动（柔性边界；兔子逃命时有惊逃冲刺加成）
+    const cx0 = WW / 2, cy0 = WH / 2, bd = 20;
+    const fleeBoost = (a.kind === 'rabbit' && a.state === 'flee') ? FLEE_BOOST : 1;
+    const v = a.genes.speed * a.moving * fleeBoost;
+    // 越界逃逸中：方向强制朝场中心，稳定离开墙带（不被逐个决策干扰）
+    if(a.escape > 0){
+      a.dir = Math.atan2(cy0 - a.y, cx0 - a.x) + rnd(-0.25, 0.25);
+      a.escape -= dt;
+    } else if(a.state === 'wander' || a.state === 'seek'){
+      // 墙带牵引：距任意墙 <band 且无明确追逃目标时，持续被拉向场中，防止贴在墙带外缘徘徊
+      const band = 45;
+      const minD = Math.min(a.x, WW - a.x, a.y, WH - a.y);
+      if(minD < band){
+        const pull = clamp(1 - minD / band, 0, 1);      // 越贴墙越强
+        const toC = Math.atan2(cy0 - a.y, cx0 - a.x);
+        const da = Math.atan2(Math.sin(toC - a.dir), Math.cos(toC - a.dir));
+        a.dir += da * pull * 0.35;
+      }
+    }
+    a.x += Math.cos(a.dir) * v * dt;
+    a.y += Math.sin(a.dir) * v * dt;
+    // 边界反弹：撞墙即目标不可达 → 清空 seek 目标，并进入越界逃逸，稳定脱离墙角
+    let bounced = false;
+    if(a.x < bd){ a.x = bd; bounced = true; }
+    else if(a.x > WW - bd){ a.x = WW - bd; bounced = true; }
+    if(a.y < bd){ a.y = bd; bounced = true; }
+    else if(a.y > WH - bd){ a.y = WH - bd; bounced = true; }
+    if(bounced){
+      a.escape = 0.6;                                 // 逃逸 0.6s，稳定朝场中心
+      a.dir = Math.atan2(cy0 - a.y, cx0 - a.x) + rnd(-0.25, 0.25);
+      if(a.state === 'seek' || a.state === 'flee') a.target = null;   // 墙挡住：放弃原目标
+    }
+
+    // 进食
+    if(a.kind === 'rabbit'){
+      if(a.state === 'seek' || (a.state === 'wander' && a.E < a.genes.cap * 0.95)){
+        a.E += eatGrass(a.x, a.y, EAT_RATE, dt);
+      }
+    } else {
+      // 狼捕食：接触后按速度差决定捕获率（贴脸非必中，猎物可挣扎）
+      if(a.digest > 0){
+        a.digest -= dt;
+      } else {
+        let caught = null;
+        forEachNear(a.x, a.y, CATCH_RADIUS + 8, o => {
+          if(o.kind === 'rabbit' && o.age >= JUVENILE && !dead.has(o.id)){
+            if(Math.hypot(o.x - a.x, o.y - a.y) < CATCH_RADIUS) caught = o;
+          }
+        });
+        if(caught){
+          // 捕获率 = 基础率 × 速度劣势因子：狼比兔越快越稳，反之难抓
+          const pCatch = CATCH_BASE * clamp((a.genes.speed * 1.0) / (caught.genes.speed * FLEE_BOOST), 0.25, 1.6);
+          if(Math.random() < pCatch){
+            dead.add(caught.id);
+            a.E = Math.min(a.genes.cap, a.E + caught.E * params.convE);
+            deaths.eaten++;
+            a.chaseTime = 0;
+            a.digest = DIGEST_TIME;      // 开始消化，暂时不追击
+          }
+        }
+      }
+    }
+
+    // 代谢（消化中代谢略降——静息状态）
+    a.E -= metabolism(a) * dt * (a.digest > 0 ? 0.8 : 1);
+
+    // 饿死
+    if(a.E <= 0){
+      dead.add(a.id);
+      deaths.starved++;
+      continue;
+    }
+
+    // 有丝分裂繁殖（分物种数量上限）
+    if(a.E >= a.genes.cap * SPLIT_FRAC[a.kind] && (a.age - a.lastSplit) >= SPLIT_COOLDOWN[a.kind]){
+      let cnt = 0;
+      for(const x of animals) if(x.kind === a.kind && !dead.has(x.id)) cnt++;
+      if(cnt < POP_CAP[a.kind]){
+        a.E *= 0.5;
+        a.lastSplit = a.age;
+        const child = spawnAnimal(a.kind, a.x + rnd(-14, 14), a.y + rnd(-14, 14),
+                                  mutateGenes(a.genes), a.gen + 1);
+        child.E = a.E;
+        born.push(child);
+      }
+    }
+  }
+
+  if(dead.size) animals = animals.filter(a => !dead.has(a.id));
+  if(born.length) animals.push(...born);
+
+  // 统计采样（每 1s）
+  sampleTimer += dt;
+  if(sampleTimer >= 1){
+    sampleTimer = 0;
+    history.push(samplePop());
+    if(history.length > 1800) history.shift();   // 30 分钟窗口
+  }
+}
+
+function avgGenes(kind){
+  let n = 0, s = 0, c = 0, v = 0;
+  for(const a of animals){
+    if(a.kind !== kind) continue;
+    n++; s += a.genes.speed; c += a.genes.cap; v += a.genes.vision;
+  }
+  return n ? { speed: s / n, cap: c / n, vision: v / n } : { speed: 0, cap: 0, vision: 0 };
+}
+function samplePop(){
+  let rabbit = 0, wolf = 0;
+  for(const a of animals){ if(a.kind === 'rabbit') rabbit++; else wolf++; }
+  return { t: simTime, grass: totalGrass(), rabbit, wolf, rg: avgGenes('rabbit'), wg: avgGenes('wolf') };
+}
+
+/* ---------- 画布与渲染 ---------- */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+cv.width = WW * dpr; cv.height = WH * dpr;
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+const grassCv = document.createElement('canvas');
+grassCv.width = WW; grassCv.height = WH;
+const gctx = grassCv.getContext('2d');
+
+/* 生物量 → 绿色深浅 */
+function grassColor(b){
+  return `rgb(${Math.round(70 - b * 40)},${Math.round(90 + b * 110)},${Math.round(50 - b * 20)})`;
+}
+function drawGrassField(){
+  gctx.clearRect(0, 0, WW, WH);
+  for(let cy = 0; cy < GH; cy++){
+    for(let cx = 0; cx < GW; cx++){
+      const b = grass[gi(cx, cy)];
+      if(b <= 0.02) continue;
+      gctx.fillStyle = grassColor(b);
+      gctx.fillRect(cx * CELL, cy * CELL, CELL - 1, CELL - 1);
+    }
+  }
+}
+/* 单格重绘：被啃食只会改变一格，重画整片草地纯属浪费 */
+function drawGrassCell(i){
+  const cx = i % GW, cy = (i - cx) / GW;
+  const px = cx * CELL, py = cy * CELL;
+  const b = grass[i];
+  if(b <= 0.02){ gctx.clearRect(px, py, CELL, CELL); return; }
+  gctx.fillStyle = grassColor(b);
+  gctx.fillRect(px, py, CELL - 1, CELL - 1);
+}
+
+let selectedId = null;
+function draw(){
+  if(grassFullDirty){
+    drawGrassField();
+    grassFullDirty = false;
+    grassCellDirty.clear();
+  } else if(grassCellDirty.size){
+    for(const i of grassCellDirty) drawGrassCell(i);
+    grassCellDirty.clear();
+  }
+  ctx.clearRect(0, 0, WW, WH);
+  ctx.drawImage(grassCv, 0, 0);
+
+  // 动物
+  for(const a of animals){
+    const isR = a.kind === 'rabbit';
+    const juv = a.age < JUVENILE;
+    const r = isR ? (juv ? 3.5 : 6) : (juv ? 6 : 10);
+    const energyRatio = a.E / a.genes.cap;
+    // 身体
+    ctx.fillStyle = isR
+      ? (a.panic > 0.3 ? '#ffe066' : '#e8d44d')
+      : (a.state === 'chase' ? '#c3cfdd' : '#9aa7b5');
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    // 朝向标记
+    ctx.strokeStyle = 'rgba(20,30,15,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x + Math.cos(a.dir) * r, a.y + Math.sin(a.dir) * r);
+    ctx.stroke();
+    // 兔子恐慌标记
+    if(isR && a.panic > 0.3){
+      ctx.fillStyle = '#ff6b6b';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('!', a.x - 2, a.y - 9);
+    }
+    // 选中环 + 能量弧
+    if(a.id === selectedId){
+      ctx.strokeStyle = '#7bd860';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, r + 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * energyRatio);
+      ctx.stroke();
+    }
+  }
+}
+
+/* ---------- 图表 ---------- */
+const chartPop = document.getElementById('chartPop');
+const chartEvo = document.getElementById('chartEvo');
+const evoState = { mode: 'speed' };
+function fitCharts(){
+  for(const c of [chartPop, chartEvo]){
+    const w = c.parentElement.clientWidth - 12;
+    if(w > 40){ c.width = w * dpr; c.height = 130 * dpr; c.style.height = '130px'; }
+  }
+}
+window.addEventListener('resize', fitCharts);
+
+function drawChart(canvas, seriesList, opts){
+  const c = canvas.getContext('2d');
+  const w = canvas.width / dpr, h = canvas.height / dpr;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, w, h);
+  c.fillStyle = '#10160e';
+  c.fillRect(0, 0, w, h);
+  if(history.length < 2) {
+    c.fillStyle = '#93a58c'; c.font = '11px sans-serif';
+    c.fillText('等待数据…（按 ▶ 开始）', 10, 20);
+    return;
+  }
+  const data = history.slice(-opts.window);
+  let maxV = 0;
+  for(const s of seriesList){
+    for(const p of data){ const v = s.get(p); if(v > maxV) maxV = v; }
+  }
+  if(maxV <= 0) maxV = 1;
+  maxV *= 1.08;
+  const t0 = data[0].t, t1 = data[data.length - 1].t || 1;
+  const X = p => 4 + (p.t - t0) / Math.max(0.001, t1 - t0) * (w - 8);
+  const Y = v => h - 4 - (v / maxV) * (h - 18);
+  // 网格
+  c.strokeStyle = 'rgba(147,165,140,.15)';
+  c.lineWidth = 1;
+  for(let i = 1; i <= 3; i++){
+    const y = 4 + i * (h - 22) / 4 + 8;
+    c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke();
+  }
+  for(const s of seriesList){
+    c.strokeStyle = s.color; c.lineWidth = 1.6;
+    c.beginPath();
+    let started = false;
+    for(const p of data){
+      const x = X(p), y = Y(s.get(p));
+      if(!started){ c.moveTo(x, y); started = true; } else c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+  // 峰值标注
+  c.fillStyle = '#93a58c'; c.font = '10px sans-serif';
+  c.fillText('峰 ' + maxV.toFixed(0), 4, 12);
+}
+
+function renderCharts(){
+  const win = Math.min(history.length, 600);
+  drawChart(chartPop, [
+    { color: '#57c84d', get: p => p.grass },
+    { color: '#e8d44d', get: p => p.rabbit * 10 },
+    { color: '#9aa7b5', get: p => p.wolf * 10 },
+  ], { window: win });
+  const m = evoState.mode;
+  drawChart(chartEvo, [
+    { color: '#e8d44d', get: p => p.rg[m] },
+    { color: '#9aa7b5', get: p => p.wg[m] },
+  ], { window: win });
+}
+document.getElementById('tabSpeed').onclick = () => setEvoMode('speed');
+document.getElementById('tabCap').onclick = () => setEvoMode('cap');
+document.getElementById('tabVision').onclick = () => setEvoMode('vision');
+function setEvoMode(m){
+  evoState.mode = m;
+  const names = { speed: 'tabSpeed', cap: 'tabCap', vision: 'tabVision' };
+  const labels = { speed: '速度 px/s', cap: '能量上限 E', vision: '视野 px' };
+  for(const k of ['speed', 'cap', 'vision']){
+    const btn = document.getElementById(names[k]);
+    if(k === m){ btn.style.background = 'var(--accent)'; btn.style.color = '#0c2206'; }
+    else { btn.style.background = ''; btn.style.color = ''; }
+  }
+  document.getElementById('evoLegend').innerHTML =
+    `<span><span class="dot" style="background:#e8d44d"></span>兔平均（${labels[m]}）</span>
+     <span><span class="dot" style="background:#9aa7b5"></span>狼平均</span>`;
+}
+
+/* ---------- 统计与状态栏 ---------- */
+const $ = id => document.getElementById(id);
+function updateStats(){
+  let rabbit = 0, wolf = 0;
+  for(const a of animals){ if(a.kind === 'rabbit') rabbit++; else wolf++; }
+  const rg = avgGenes('rabbit'), wg = avgGenes('wolf');
+  $('statBox').innerHTML = `
+    <div><span class="k">模拟时间</span>${simTime.toFixed(0)} s</div>
+    <div><span class="k">🐰 兔子</span>${rabbit} 只 · 最高第 ${generationMax.rabbit} 代</div>
+    <div><span class="k">🐺 狼</span>${wolf} 只 · 最高第 ${generationMax.wolf} 代</div>
+    <div><span class="k">🌱 草总量</span>${totalGrass().toFixed(0)} 单位</div>
+    <div><span class="k">兔 平均基因</span>速${rg.speed.toFixed(0)} 耐${rg.cap.toFixed(0)} 视${rg.vision.toFixed(0)}</div>
+    <div><span class="k">狼 平均基因</span>速${wg.speed.toFixed(0)} 耐${wg.cap.toFixed(0)} 视${wg.vision.toFixed(0)}</div>
+    <div><span class="k">💀 累计死亡</span>饿死 ${deaths.starved} · 被捕食 ${deaths.eaten}</div>`;
+  const st = [];
+  if(rabbit === 0) st.push('🐰 兔子已灭绝');
+  if(wolf === 0) st.push('🐺 狼已灭绝');
+  // 标称倍速受单帧步数上限与帧率制约：达不到时如实标出实测值，不假装跑满了
+  const lag = (mode === 'run' && actualScale < timeScale * 0.85)
+    ? ` <span style="color:var(--warn)">（实测 ${actualScale.toFixed(1)}×）</span>` : '';
+  $('statusBar').innerHTML = `模式：<b>${mode === 'run' ? '运行' : (mode === 'paused' ? '暂停' : '编辑')}</b> · 时间 <b>${simTime.toFixed(1)} s</b>` +
+    (mode === 'run' ? ` · 倍速 <b>${timeScale}×</b>${lag}` : '') +
+    (st.length ? ` · <b style="color:var(--red)">${st.join(' · ')}</b>` : '');
+}
+
+function updateObjBox(){
+  const a = animals.find(x => x.id === selectedId);
+  const box = $('objBox');
+  if(!a){ box.innerHTML = '<span style="color:var(--muted)">点击画布中的动物查看基因</span>'; return; }
+  const stateName = { wander: '游荡', seek: '觅食', flee: '逃命！', chase: '追击！' }[a.state] || a.state;
+  box.innerHTML = `
+    <div style="font-size:15px; font-weight:600; margin-bottom:4px;">${a.kind === 'rabbit' ? '🐇 兔子' : '🐺 狼'} <span style="color:var(--muted); font-weight:400;">第 ${a.gen} 代 · #${a.id}</span></div>
+    <div><span class="gene-chip">🏃 速度 ${a.genes.speed.toFixed(1)} px/s</span><span class="gene-chip">🔋 上限 ${a.genes.cap.toFixed(0)} E</span><span class="gene-chip">👁 视野 ${a.genes.vision.toFixed(0)} px</span></div>
+    <div style="margin-top:6px;">能量 ${a.E.toFixed(1)} / ${a.genes.cap.toFixed(0)} E（${(a.E / a.genes.cap * 100).toFixed(0)}%）</div>
+    <div>年龄 ${a.age.toFixed(1)} s · 状态 ${stateName}</div>
+    <div style="color:var(--muted); font-size:11px; margin-top:4px;">分裂阈值 ${SPLIT_FRAC[a.kind] * 100}% · 当前冷却 ${(SPLIT_COOLDOWN[a.kind] - Math.min(SPLIT_COOLDOWN[a.kind], a.age - a.lastSplit)).toFixed(1)}s</div>`;
+}
+
+/* ---------- 主循环 ---------- */
+let mode = 'edit';
+let timeScale = 1, acc = 0, lastT = performance.now();
+let panelTimer = 1;                              // 面板刷新节流（初值 >0.25 保证首帧即渲染）
+let speedWin = 0, speedSim = 0, actualScale = 1; // 实测倍速：算力跟不上时如实反映
+
+function frame(now){
+  const dt = Math.min((now - lastT) / 1000, 0.08);
+  lastT = now;
+
+  if(mode === 'run'){
+    acc += dt * timeScale;
+    let n = 0, advanced = 0;
+    while(acc >= SIM_DT && n < 40){ step(SIM_DT); acc -= SIM_DT; n++; advanced += SIM_DT; }
+    // 单帧 40 步上限是刻意的性能保护（一步要跑全种群 AI，放开会卡死）。
+    // 但标称倍速因此可能达不到：这里丢弃积压避免雪崩，并记录实际值如实显示。
+    if(n >= 40) acc = 0;
+    speedWin += dt; speedSim += advanced;
+  }
+
+  draw();                                    // 画面每帧刷新，动画才流畅
+
+  // 面板与图表：每秒 4 次已足够（眼睛读不到更快），开销降一个数量级
+  panelTimer += dt;
+  if(panelTimer >= 0.25){
+    panelTimer = 0;
+    if(speedWin > 0.001) actualScale = speedSim / speedWin;
+    speedWin = 0; speedSim = 0;
+    renderCharts();
+    updateStats();
+    updateObjBox();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 播放控制 ---------- */
+let snapshot = null;
+function takeSnapshot(){
+  /* 狼的 target 指向「另一只动物的对象」，直接序列化有两个坏处：
+     ① 整只猎物被复制进快照，体积虚增；
+     ② 还原后该副本不在 animals 数组里，狼会去追一个追不上的幽灵目标。
+     所以统一把对象引用换成 id，还原时再重新解析。 */
+  const clone = animals.map(a => {
+    const c = Object.assign({}, a);
+    if(c.target && typeof c.target.id === 'number') c.target = { refId: c.target.id };
+    return c;
+  });
+  snapshot = JSON.stringify({ animals: clone, grass: Array.from(grass), simTime, deaths, generationMax, history });
+}
+function restoreSnapshot(){
+  if(!snapshot) return;
+  const s = JSON.parse(snapshot);
+  animals = s.animals;
+  const byId = new Map();
+  for(const a of animals) byId.set(a.id, a);
+  for(const a of animals){
+    if(a.target && a.target.refId !== undefined){
+      a.target = byId.get(a.target.refId) || null;   // 目标已死 → 清空，回游荡
+      if(!a.target){ a.state = 'wander'; a.chaseTime = 0; }
+    }
+  }
+  grass.set(s.grass);
+  simTime = s.simTime; deaths = s.deaths; generationMax = s.generationMax;
+  history.length = 0; history.push(...s.history);
+  grassFullDirty = true;
+}
+function playSim(){
+  if(mode === 'edit') takeSnapshot();
+  mode = 'run';
+  $('btnPlay').textContent = '⏸ 暂停';
+}
+function pauseSim(){
+  mode = 'paused';
+  $('btnPlay').textContent = '▶ 继续';
+}
+$('btnPlay').onclick = () => mode === 'run' ? pauseSim() : playSim();
+$('btnStep').onclick = () => {
+  if(mode === 'edit') takeSnapshot();
+  mode = 'paused';
+  for(let i = 0; i < 10; i++) step(SIM_DT);
+  grassFullDirty = true;
+  $('btnPlay').textContent = '▶ 继续';
+};
+$('btnReset').onclick = () => {
+  restoreSnapshot();
+  mode = 'edit';
+  $('btnPlay').textContent = '▶ 开始';
+};
+
+/* ---------- 参数绑定 ---------- */
+$('grassRate').oninput = e => { params.grassRate = +e.target.value; $('grassRateV').textContent = params.grassRate.toFixed(3); };
+$('metabK').oninput = e => { params.metabK = +e.target.value; $('metabKV').textContent = params.metabK.toFixed(1); };
+$('mutP').oninput = e => { params.mutP = +e.target.value; $('mutPV').textContent = Math.round(params.mutP * 100) + '%'; };
+$('convE').oninput = e => { params.convE = +e.target.value; $('convEV').textContent = params.convE.toFixed(2); };
+$('speedSel').onchange = e => { timeScale = +e.target.value; };
+
+/* ---------- 工具与画布交互 ---------- */
+let tool = 'select';
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    tool = btn.dataset.tool;
+  };
+});
+
+function toWorld(ev){
+  const rect = cv.getBoundingClientRect();
+  return [ (ev.clientX - rect.left) / rect.width * WW,
+           (ev.clientY - rect.top) / rect.height * WH ];
+}
+cv.addEventListener('pointerdown', ev => {
+  ev.preventDefault();
+  const [mx, my] = toWorld(ev);
+  if(tool === 'rabbit'){ spawnAnimal('rabbit', mx, my); return; }
+  if(tool === 'wolf'){ spawnAnimal('wolf', mx, my); return; }
+  // 选择：最近的动物
+  let best = null, bd = 26;
+  for(const a of animals){
+    const d = Math.hypot(a.x - mx, a.y - my);
+    if(d < bd){ bd = d; best = a; }
+  }
+  selectedId = best ? best.id : null;
+  updateObjBox();                 // 点选立即响应，不必等面板节流
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- 预设 ---------- */
+const presets = {
+  classic: { grass: 0.6, rabbit: 40, wolf: 8, wolfSpeed: null, label: '经典草原' },
+  wild:    { grass: 0.5, rabbit: 40, wolf: 10, wolfSpeed: null, grassRate: 0.028, label: '野生振荡（草供给临界 → Lotka-Volterra 振荡，有崩溃风险）' },
+  barren:  { grass: 0.25, rabbit: 30, wolf: 6, wolfSpeed: null, grassRate: 0.006, label: '贫瘠草原（草生长率×0.15 → 耐饿基因被选择）' },
+  arms:    { grass: 0.7, rabbit: 40, wolf: 8, wolfSpeed: 105, label: '军备竞赛（狼提速 → 观察兔速度代际攀升）' },
+  nowolf:  { grass: 0.6, rabbit: 30, wolf: 0, label: '无狼对照（兔顶到环境容纳量 450 后停滞——对照出：捕食产生振荡）' },
+};
+function loadPreset(name){
+  const p = presets[name];
+  animals = []; nextId = 1;
+  generationMax = { rabbit: 1, wolf: 1 };
+  deaths = { starved: 0, eaten: 0 };
+  simTime = 0; sampleTimer = 0; history.length = 0;
+  seedGrass(p.grass);
+  if(p.grassRate){ params.grassRate = p.grassRate; $('grassRate').value = p.grassRate; $('grassRateV').textContent = p.grassRate.toFixed(3); }
+  else { params.grassRate = 0.04; $('grassRate').value = 0.04; $('grassRateV').textContent = '0.040'; }
+  params.convE = 0.8; $('convE').value = 0.8; $('convEV').textContent = '0.80';
+  for(let i = 0; i < p.rabbit; i++) spawnAnimal('rabbit');
+  for(let i = 0; i < p.wolf; i++){
+    const a = spawnAnimal('wolf');
+    if(p.wolfSpeed) a.genes.speed = p.wolfSpeed;
+  }
+  selectedId = null;
+  mode = 'edit'; snapshot = null;
+  $('btnPlay').textContent = '▶ 开始';
+  grassFullDirty = true;
+}
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.onclick = () => loadPreset(btn.dataset.preset);
+});
+
+/* ---------- 启动 ---------- */
+fitCharts();
+setEvoMode('speed');
+loadPreset('classic');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
